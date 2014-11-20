@@ -96,7 +96,7 @@ foreach ($config as $local_config) {
 
 	$date		= time();
 	$snapshot	= date($local_config['date_format'], $date);
-	shell_exec("btrfs subvolume snapshot -r \"$source\" \"$destination/$snapshot\"");
+	shell_exec("/sbin/btrfs subvolume snapshot -r \"$source\" \"$destination/$snapshot\"");
 	if (!file_exists("$destination/$snapshot")) {
 		echo "Snapshot creation for $source failed\n";
 		continue;
@@ -156,7 +156,7 @@ foreach ($config as $local_config) {
 	$snapshots_for_removal	= array_unique($snapshots_for_removal);
 	$snapshots_for_removal	= array_filter($snapshots_for_removal);
 	foreach ($snapshots_for_removal as $snapshot_for_removal) {
-		shell_exec("btrfs subvolume delete \"$destination/$snapshot_for_removal\"");
+		shell_exec("/sbin/btrfs subvolume delete \"$destination/$snapshot_for_removal\"");
 		if (file_exists("$destination/$snapshot_for_removal")) {
 			echo "Removing old snapshot $snapshot_for_removal for $source failed\n";
 			continue;
