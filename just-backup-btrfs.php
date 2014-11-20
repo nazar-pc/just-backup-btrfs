@@ -12,7 +12,7 @@ set_time_limit(0);
 
 echo "Just backup btrfs started...\n";
 
-$config	= json_decode(file_get_contents('just-backup-btrfs.json'), true);
+$config	= json_decode(file_get_contents('/etc/just-backup-btrfs.json'), true);
 
 /**
  * @param SQLite3	$history_db
