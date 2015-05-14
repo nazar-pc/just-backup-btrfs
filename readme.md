@@ -31,7 +31,7 @@ sudo php just-backup-btrfs.php
 
 or mark file as executable and just
 ```bash
-./just-backup-btrfs.php
+sudo ./just-backup-btrfs.php
 ```
 
 or mark as executable, rename it to `just-backup-btrfs` (since file can't contain dots in that place) and put into `/etc/cron.daily` to make backups every day.
