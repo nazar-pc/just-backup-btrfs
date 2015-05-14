@@ -75,5 +75,7 @@ Configuration options are especially made self-explanatory:
 ```
 The only thing that may not be obvious here - you can use `-1` as value for `keep_snapshots` elements to allow storing of all created snapshots.
 
+Save this config as `/etc/just-backup-btrfs.json` and customize as you like.
+
 ### License
 MIT, feel free to hack it and share!
