@@ -22,7 +22,7 @@ sudo php5enmod sqlite3
 ```
 
 ### Usage
-Script expects configuration file to be present at location `/etc/just-backup-btrfs.json`, example of such file you can find in this repository.
+Script expects configuration file to be present at location `/etc/just-backup-btrfs.json`, example of such file you can find in next section. Also, if you want to use other path to config file - specify it as argument.
 
 There are few ways to run script.
 ```bash
@@ -35,6 +35,11 @@ sudo ./just-backup-btrfs.php
 ```
 
 or mark as executable, rename it to `just-backup-btrfs` (since file can't contain dots in that place) and put into `/etc/cron.daily` to make backups every day.
+
+With custom path to config file:
+```bash
+sudo ./just-backup-btrfs.php /path/to/config.json
+```
 
 Output will be like this:
 ```

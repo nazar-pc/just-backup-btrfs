@@ -8,7 +8,7 @@ use
  * @author    Nazar Mokrynskyi <nazar@mokrynskyi.com>
  * @copyright Copyright (c) 2014-2015, Nazar Mokrynskyi
  * @license   http://opensource.org/licenses/MIT
- * @version   0.4
+ * @version   0.5
  */
 class Just_backup_btrfs {
 	/**
@@ -20,10 +20,13 @@ class Just_backup_btrfs {
 	 */
 	protected $binary;
 	/**
-	 * @param array|null $config
+	 * @param array $config
 	 */
-	function __construct ($config = null) {
-		$this->config = $config ?: json_decode(file_get_contents('/etc/just-backup-btrfs.json'), true);
+	function __construct ($config) {
+		if (!$config) {
+			exit("Incorrect configuration, aborted\n");
+		}
+		$this->config = $config;
 		$this->binary = file_exists('/usr/sbin/btrfs') ? '/usr/sbin/btrfs' : '/bin/btrfs';
 	}
 	function backup () {
@@ -392,6 +395,9 @@ class Just_backup_btrfs {
 
 echo "Just backup btrfs started...\n";
 
-(new Just_backup_btrfs)->backup();
+$Just_backup_btrfs = new Just_backup_btrfs(
+	json_decode(file_get_contents(isset($argv[1]) ? $argv[1] : '/etc/just-backup-btrfs.json'), true)
+);
+$Just_backup_btrfs->backup();
 
 echo "Just backup btrfs finished!\n";
