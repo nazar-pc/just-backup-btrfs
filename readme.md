@@ -36,6 +36,24 @@ sudo ./just-backup-btrfs.php
 
 or mark as executable, rename it to `just-backup-btrfs` (since file can't contain dots in that place) and put into `/etc/cron.daily` to make backups every day.
 
+Output will be like this:
+```
+nazar-pc@nazar-pc ~> sudo /just-backup-btrfs.php 
+Just backup btrfs started...
+Snapshot 2015-05-17_07:31:13 for / created successfully
+At subvol /backup/root/2015-05-17_07:31:13
+Creating incremental backup 2015-05-17_07:31:13 of / to /backup_hdd/root finished successfully
+Snapshot 2015-05-17_07:31:13 for /home created successfully
+At subvol /backup/home/2015-05-17_07:31:13
+At subvol 2015-05-17_07:31:13
+Creating backup 2015-05-17_07:31:13 of /home to /backup_hdd/home finished successfully
+Snapshot 2015-05-17_07:36:37 for /web created successfully
+At subvol /backup/web/2015-05-17_07:36:37
+At subvol 2015-05-17_07:36:37
+Creating backup 2015-05-17_07:36:37 of /web to /backup_hdd/web finished successfully
+Just backup btrfs finished!
+```
+
 Also you can call it with cron or in some other way:)
 
 ### What it actually does?
@@ -52,6 +70,7 @@ Configuration options are especially made self-explanatory:
 	{
 		"source_mounted_volume"			: "/",
 		"destination_within_partition"	: "/backup/root",
+		"destination_other_partition"	: false,
 		"date_format"					: "Y-m-d_H:i:s",
 		"keep_snapshots"				: {
 			"hour"	: 60,
@@ -63,6 +82,7 @@ Configuration options are especially made self-explanatory:
 	{
 		"source_mounted_volume"			: "/home",
 		"destination_within_partition"	: "/backup/home",
+		"destination_other_partition"	: "/backup_external/home",
 		"date_format"					: "Y-m-d_H:i:s",
 		"keep_snapshots"				: {
 			"hour"	: 120,
@@ -73,7 +93,9 @@ Configuration options are especially made self-explanatory:
 	}
 ]
 ```
-The only thing that may not be obvious here - you can use `-1` as value for `keep_snapshots` elements to allow storing of all created snapshots.
+Here you can use `-1` as value for `keep_snapshots` elements to allow storing of all created snapshots.
+Also `destination_other_partition` might be `false` or path on some other BTRFS partition (even on other drive) to create backups, not just snapshots.
+Most options should be obvious
 
 Save this config as `/etc/just-backup-btrfs.json` and customize as you like.
 
