@@ -261,15 +261,16 @@ class Just_backup_btrfs {
 	protected function get_last_common_snapshot ($history_db, $history_db_external) {
 		$snapshots = $history_db_external->query(
 			"SELECT `snapshot_name`
-			FROM `history`"
+			FROM `history`
+			ORDER BY `date` DESC"
 		);
 		while ($snapshot = $snapshots->fetchArray(SQLITE3_ASSOC)['snapshot_name']) {
 			$snapshot_escaped = $history_db->escapeString($snapshot);
 			$snapshot_found   = $history_db
 				->query(
 					"SELECT `snapshot_name`
-						FROM `history`
-						WHERE `snapshot_name` = '$snapshot_escaped'"
+					FROM `history`
+					WHERE `snapshot_name` = '$snapshot_escaped'"
 				)
 				->fetchArray();
 			if ($snapshot_found) {

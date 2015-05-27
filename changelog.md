@@ -1,3 +1,6 @@
+# 0.x (Unreleased yet)
+* Radically improve speed of incremental backups (check recent snapshots first)
+
 # 0.5 (17 May, 2015)
 * Code moved into class
 * Fix for Ubuntu 15.10 (binaries moved from `/usr/sbin` to `/bin`, now both cases are supported)
