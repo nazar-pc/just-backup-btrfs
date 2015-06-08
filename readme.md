@@ -94,12 +94,19 @@ Configuration options are especially made self-explanatory:
 			"day"	: 48,
 			"month"	: 60,
 			"year"	: 96
+		},
+		"keep_other_snapshots"			: {
+			"hour"	: -1,
+			"day"	: 96,
+			"month"	: 120,
+			"year"	: 192
 		}
 	}
 ]
 ```
 Here you can use `-1` as value for `keep_snapshots` elements to allow storing of all created snapshots.
 Also `destination_other_partition` might be `false` or path on some other BTRFS partition (even on other drive) to create backups, not just snapshots.
+If `keep_other_snapshots` option is present - it will be used for `destination_other_partition` instead of `keep_snapshots`. 
 Most options should be obvious
 
 Save this config as `/etc/just-backup-btrfs.json` and customize as you like.

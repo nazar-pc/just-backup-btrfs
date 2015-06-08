@@ -1,5 +1,6 @@
-# 0.x (Unreleased yet)
+# 0.6 (08 June, 2015)
 * Radically improve speed of incremental backups (check recent snapshots first)
+* Support for separate retention settings for external backups (to other partition/disk)
 
 # 0.5 (17 May, 2015)
 * Code moved into class

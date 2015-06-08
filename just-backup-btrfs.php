@@ -8,7 +8,7 @@ use
  * @author    Nazar Mokrynskyi <nazar@mokrynskyi.com>
  * @copyright Copyright (c) 2014-2015, Nazar Mokrynskyi
  * @license   http://opensource.org/licenses/MIT
- * @version   0.5
+ * @version   0.6
  */
 class Just_backup_btrfs {
 	/**
@@ -140,7 +140,7 @@ class Just_backup_btrfs {
 		if (!$history_db_external) {
 			return;
 		}
-		list($keep_year, $keep_month, $keep_day, $keep_hour) = $this->how_long_to_keep($history_db_external, $config['keep_snapshots']);
+		list($keep_year, $keep_month, $keep_day, $keep_hour) = $this->how_long_to_keep($history_db_external, isset($config['keep_other_snapshots']) ? $config['keep_other_snapshots'] : $config['keep_snapshots']);
 		if (!$keep_hour) {
 			return;
 		}
