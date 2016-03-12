@@ -1,0 +1,33 @@
+{
+	"name"        : "nazar-pc/just-backup-btrfs",
+	"description" : "Script that does just that - creates backups using snapshot of btrfs filesystem. Also it makes rotation of snapshots by removing old ones and keeping as many snapshots as you want.",
+	"keywords"    : [
+		"btrfs",
+		"cli",
+		"backup",
+		"snapshot",
+		"filesystem"
+	],
+	"homepage"    : "https://github.com/nazar-pc/just-backup-btrfs",
+	"license"     : "MIT",
+	"require"     : {
+		"php"         : ">=5.4",
+		"ext-sqlite3" : "*"
+	},
+	"authors"     : [
+		{
+			"name"     : "Nazar Mokrynskyi",
+			"email"    : "nazar@mokrynskyi.com",
+			"homepage" : "http://cleverstyle.org/",
+			"role"     : "Developer"
+		}
+	],
+	"bin"         : [
+		"just-backup-btrfs"
+	],
+	"extra"       : {
+		"branch-alias" : {
+			"dev-master" : "1.0-dev"
+		}
+	}
+}

@@ -3,12 +3,13 @@
 namespace nazarpc;
 use
 	SQLite3;
+
 /**
  * @package   Just backup btrfs
  * @author    Nazar Mokrynskyi <nazar@mokrynskyi.com>
- * @copyright Copyright (c) 2014-2015, Nazar Mokrynskyi
+ * @copyright Copyright (c) 2014-2016, Nazar Mokrynskyi
  * @license   http://opensource.org/licenses/MIT
- * @version   0.6
+ * @version   0.7
  */
 class Just_backup_btrfs {
 	/**
@@ -30,8 +31,11 @@ class Just_backup_btrfs {
 		$this->binary = file_exists('/usr/sbin/btrfs') ? '/usr/sbin/btrfs' : '/bin/btrfs';
 	}
 	function backup () {
+		$default_config = [
+			'optimize_mounts' => true
+		];
 		foreach ($this->config as $local_config) {
-			$this->do_backup($local_config);
+			$this->do_backup($local_config + $default_config);
 		}
 	}
 	/**
@@ -50,17 +54,9 @@ class Just_backup_btrfs {
 		if (!$keep_hour) {
 			return;
 		}
-
-		$date     = time();
-		$snapshot = date($config['date_format'], $date);
-		shell_exec("$this->binary subvolume snapshot -r \"$source\" \"$destination/$snapshot\"");
-		shell_exec("sync"); // To actually write snapshot to disk
-		if (!file_exists("$destination/$snapshot")) {
-			echo "Snapshot creation for $source failed\n";
-			return;
-		}
-
-		$snapshot_escaped = $history_db->escapeString($snapshot);
+		$date             = time();
+		$snapshot         = date($config['date_format'], $date);
+		$snapshot_escaped = $history_db::escapeString($snapshot);
 		$comment          = ''; //TODO Comments support
 		if (!$history_db->exec(
 			"INSERT INTO `history` (
@@ -82,9 +78,17 @@ class Just_backup_btrfs {
 			)"
 		)
 		) {
-			echo "Snapshot $snapshot for $source created successfully, but not added to history because of database error\n";
+			echo "Snapshot $snapshot for $source failed because of database error\n";
 			return;
 		}
+
+		$this->exec("$this->binary subvolume snapshot -r \"$source\" \"$destination/$snapshot\"");
+		$this->exec("sync"); // To actually write snapshot to disk
+		if (!file_exists("$destination/$snapshot")) {
+			echo "Snapshot creation for $source failed\n";
+			return;
+		}
+
 		echo "Snapshot $snapshot for $source created successfully\n";
 
 		$this->do_backup_external($config, $history_db, $snapshot, $comment, $date);
@@ -93,12 +97,25 @@ class Just_backup_btrfs {
 		$history_db->close();
 	}
 	/**
+	 * @param string $cmd     Command to execute
+	 * @param string $comment Optional comment
+	 *
+	 * @return string
+	 */
+	protected function exec ($cmd, $comment = '') {
+		if ($comment) {
+			echo "$comment\n";
+		}
+		echo "CMD: $cmd\n";
+		return shell_exec($cmd);
+	}
+	/**
 	 * @param string $destination
 	 *
 	 * @return false|SQLite3
 	 */
 	protected function init_database ($destination) {
-		if (!file_exists($destination) && !mkdir($destination, 0755, true)) {
+		if (!file_exists($destination) && !@mkdir($destination, 0755, true)) {
 			echo "Creating backup destination $destination failed, check permissions\n";
 			return false;
 		}
@@ -140,8 +157,37 @@ class Just_backup_btrfs {
 		if (!$history_db_external) {
 			return;
 		}
-		list($keep_year, $keep_month, $keep_day, $keep_hour) = $this->how_long_to_keep($history_db_external, isset($config['keep_other_snapshots']) ? $config['keep_other_snapshots'] : $config['keep_snapshots']);
+
+		$common_snapshot = $this->get_last_common_snapshot($history_db, $history_db_external, $destination, $destination_external);
+		list($keep_year, $keep_month, $keep_day, $keep_hour) = $this->how_long_to_keep(
+			$history_db_external,
+			isset($config['keep_other_snapshots']) ? $config['keep_other_snapshots'] : $config['keep_snapshots']
+		);
 		if (!$keep_hour) {
+			return;
+		}
+		$snapshot_escaped = $history_db::escapeString($snapshot);
+		if (!$history_db_external->exec(
+			"INSERT INTO `history` (
+					`snapshot_name`,
+					`comment`,
+					`date`,
+					`keep_hour`,
+					`keep_day`,
+					`keep_month`,
+					`keep_year`
+				) VALUES (
+					'$snapshot_escaped',
+					'$comment',
+					'$date',
+					'$keep_hour',
+					'$keep_day',
+					'$keep_month',
+					'$keep_year'
+				)"
+		)
+		) {
+			echo "Creating backup $snapshot of $source to $destination_external failed because of database error\n";
 			return;
 		}
 		/**
@@ -168,10 +214,17 @@ class Just_backup_btrfs {
 			$destination_external_fixed = $m[1].$destination_external_fixed;
 		}
 
-		$target_mount_point         = '/tmp/'.uniqid('just_backup_btrfs_');
+		$target_mount_point         = "/tmp/just_backup_btrfs_".md5($partition);
 		$destination_external_fixed = $target_mount_point.$destination_external_fixed;
-		mkdir($target_mount_point);
-		shell_exec("mount -o subvol=/,$mount_options /$partition $target_mount_point");
+		if (!is_dir($target_mount_point)) {
+			mkdir($target_mount_point);
+			$this->exec(
+				"mount -o subvol=/,$mount_options /$partition $target_mount_point",
+				'Mounting root subvolume'
+			);
+		} else {
+			echo "Mounting root subvolume skipped, since already mounted\n";
+		}
 		unset($mount_point_options, $partition, $mount_point, $mount_options);
 
 		if (!isset($destination_external_fixed, $target_mount_point)) {
@@ -179,52 +232,39 @@ class Just_backup_btrfs {
 			echo "Creating backup $snapshot of $source to $destination_external failed\n";
 			return;
 		}
-		$common_snapshot = $this->get_last_common_snapshot($history_db, $history_db_external);
 		if ($common_snapshot) {
-			shell_exec(
-				"$this->binary send -p \"$destination/$common_snapshot\" \"$destination/$snapshot\" | $this->binary receive $destination_external_fixed"
+			$this->exec(
+				"$this->binary send -p \"$destination/$common_snapshot\" \"$destination/$snapshot\" | $this->binary receive $destination_external_fixed",
+				'Making incremental backup'
 			);
 			$type = 'incremental backup';
 		} else {
-			shell_exec("$this->binary send  \"$destination/$snapshot\" | $this->binary receive $destination_external_fixed");
+			$this->exec(
+				"$this->binary send  \"$destination/$snapshot\" | $this->binary receive $destination_external_fixed",
+				'Making full backup'
+			);
 			$type = 'backup';
 		}
 		if (!file_exists("$destination_external/$snapshot")) {
 			echo "Creating $type $snapshot of $source to $destination_external failed\n";
 		} else {
-			$snapshot_escaped = $history_db->escapeString($snapshot);
-			if (!$history_db_external->exec(
-				"INSERT INTO `history` (
-					`snapshot_name`,
-					`comment`,
-					`date`,
-					`keep_hour`,
-					`keep_day`,
-					`keep_month`,
-					`keep_year`
-				) VALUES (
-					'$snapshot_escaped',
-					'$comment',
-					'$date',
-					'$keep_hour',
-					'$keep_day',
-					'$keep_month',
-					'$keep_year'
-				)"
-			)
-			) {
-				echo "Creating $type $snapshot of $source to $destination_external finished successfully, but not added to history because of database error\n";
-			} else {
-				$this->cleanup($history_db_external, $destination_external);
-				echo "Creating $type $snapshot of $source to $destination_external finished successfully\n";
-			}
+			$this->cleanup($history_db_external, $destination_external);
+			echo "Creating $type $snapshot of $source to $destination_external finished successfully\n";
 		}
-		shell_exec("umount $target_mount_point");
-		rmdir($target_mount_point);
+		if (!$config['optimize_mounts']) {
+			$this->exec(
+				"umount $target_mount_point",
+				'Unmounting root subvolume'
+			);
+			rmdir($target_mount_point);
+		} else {
+			echo "Unmounting root subvolume skipped\n";
+		}
 	}
 	protected function determine_mount_point ($destination_external) {
 		$mount_point_options = [];
-		foreach (explode("\n", shell_exec('mount')) as $mount_string) {
+		$mount               = $this->exec('mount');
+		foreach (explode("\n", $mount) as $mount_string) {
 			/**
 			 * Choose only BTRFS filesystems
 			 */
@@ -255,17 +295,19 @@ class Just_backup_btrfs {
 	/**
 	 * @param SQLite3 $history_db
 	 * @param SQLite3 $history_db_external
+	 * @param string  $destination
+	 * @param string  $destination_external
 	 *
 	 * @return bool
 	 */
-	protected function get_last_common_snapshot ($history_db, $history_db_external) {
+	protected function get_last_common_snapshot ($history_db, $history_db_external, $destination, $destination_external) {
 		$snapshots = $history_db_external->query(
 			"SELECT `snapshot_name`
 			FROM `history`
 			ORDER BY `date` DESC"
 		);
 		while ($snapshot = $snapshots->fetchArray(SQLITE3_ASSOC)['snapshot_name']) {
-			$snapshot_escaped = $history_db->escapeString($snapshot);
+			$snapshot_escaped = $history_db::escapeString($snapshot);
 			$snapshot_found   = $history_db
 				->query(
 					"SELECT `snapshot_name`
@@ -273,7 +315,11 @@ class Just_backup_btrfs {
 					WHERE `snapshot_name` = '$snapshot_escaped'"
 				)
 				->fetchArray();
-			if ($snapshot_found) {
+			if (
+				$snapshot_found &&
+				file_exists("$destination/$snapshot") &&
+				file_exists("$destination_external/$snapshot")
+			) {
 				return $snapshot;
 			}
 		}
@@ -342,12 +388,12 @@ class Just_backup_btrfs {
 	 */
 	protected function cleanup ($history_db, $destination) {
 		foreach ($this->snapshots_for_removal($history_db) as $snapshot_for_removal) {
-			shell_exec("$this->binary subvolume delete \"$destination/$snapshot_for_removal\"");
+			$this->exec("$this->binary subvolume delete \"$destination/$snapshot_for_removal\"");
 			if (file_exists("$destination/$snapshot_for_removal")) {
 				echo "Removing old snapshot $snapshot_for_removal from $destination failed\n";
 				continue;
 			}
-			$snapshot_for_removal_escaped = $history_db->escapeString($snapshot_for_removal);
+			$snapshot_for_removal_escaped = $history_db::escapeString($snapshot_for_removal);
 			if (!$history_db->exec(
 				"DELETE FROM `history`
 				WHERE `snapshot_name` = '$snapshot_for_removal_escaped'"

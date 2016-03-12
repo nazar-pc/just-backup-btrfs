@@ -1,3 +1,8 @@
+# 0.7 (12 March, 2016)
+* Optimized mounts to speed-up everything, `optimize_mounts : false` might be used to restore default behavior
+* `composer.json` added alongside with instructions for installing globally using Composer
+* Add snapshot to database before actual creation (to avoid having snapshots that are not tracked anywhere)
+
 # 0.6 (08 June, 2015)
 * Radically improve speed of incremental backups (check recent snapshots first)
 * Support for separate retention settings for external backups (to other partition/disk)
