@@ -119,53 +119,61 @@ Also you can call it with cron or in some other way:)
 
 ### What it actually does?
 * reads configuration from `/etc/just-backup-btrfs.json`
-* creates `destination/history.db` SQLite database if it doesn't exists yet
-* creates snapshot with date as the name inside `destination`
-* store snapshot name, date and how long snapshot should be kept in `destination/history.db`
-* removes old snapshots stored in `destination/history.db` and remove them from it
+* creates `destination_within_partition/history.db` SQLite database if it doesn't exists yet
+* creates snapshot with date as the name inside `destination_within_partition`
+* creates backups (copies of snapshots inside `destination_within_partition`) inside `destination_other_partition` for the case when source filesystem crashes
+* store snapshot name, date and how long snapshot should be kept in `destination_within_partition/history.db` (and `destination_other_partition/history.db`, since backups might have own retention settings)
+* removes old snapshots stored in `destination_within_partition/history.db` (and `destination_other_partition/history.db`) and remove them from it and from filesystem
 
 ### Configuration
 Configuration options are especially made self-explanatory:
 ```json
 [
 	{
-		"source_mounted_volume"			: "/",
-		"destination_within_partition"	: "/backup/root",
-		"destination_other_partition"	: false,
-		"date_format"					: "Y-m-d_H:i:s",
-		"keep_snapshots"				: {
-			"hour"	: 60,
-			"day"	: 24,
-			"month"	: 30,
-			"year"	: 48
+		"source_mounted_volume"        : "/",
+		"destination_within_partition" : "/backup/root",
+		"destination_other_partition"  : null,
+		"date_format"                  : "Y-m-d_H:i:s",
+		"keep_snapshots"               : {
+			"hour"  : 60,
+			"day"   : 24,
+			"month" : 30,
+			"year"  : 48
 		}
 	},
 	{
-		"source_mounted_volume"			: "/home",
-		"destination_within_partition"	: "/backup/home",
-		"destination_other_partition"	: "/backup_external/home",
-		"date_format"					: "Y-m-d_H:i:s",
-		"optimize_mounts"				: false,
-		"keep_snapshots"				: {
-			"hour"	: 120,
-			"day"	: 48,
-			"month"	: 60,
-			"year"	: 96
+		"source_mounted_volume"        : "/home",
+		"destination_within_partition" : "/backup/home",
+		"destination_other_partition"  : "/backup_external/home",
+		"date_format"                  : "Y-m-d_H:i:s",
+		"optimize_mounts"              : false,
+		"keep_snapshots"               : {
+			"hour"  : 120,
+			"day"   : 48,
+			"month" : 60,
+			"year"  : 96
 		},
-		"keep_other_snapshots"			: {
-			"hour"	: -1,
-			"day"	: 96,
-			"month"	: 120,
-			"year"	: 192
-		}
+		"keep_other_snapshots"         : {
+			"hour"  : -1,
+			"day"   : 96,
+			"month" : 120,
+			"year"  : 192
+		},
+		"minimum_delete_count"         : 10,
+		"minimum_delete_count_other"   : 10
 	}
 ]
 ```
-Here you can use `-1` as value for `keep_snapshots` elements to allow storing of all created snapshots.
-Also `destination_other_partition` might be `false` or path on some other BTRFS partition (even on other drive) to create backups, not just snapshots.
-If `keep_other_snapshots` option is present - it will be used for `destination_other_partition` instead of `keep_snapshots`.
-`optimize_mounts` allows to avoid constant remounting root during external backups since it might be slow; `true` by default, might be disabled if necessary.
-Most options should be obvious
+
+* `source_mounted_volume` - string, absolute path, subvolume to backup/create snapshot of
+* `destination_within_partition` - string, absolute path, where to store snapshots, should be the same partition as `source_mounted_volume`
+* `destination_other_partition` - string, absolute path (or `null` if not needed), where to store actual backup, expected to be another BTRFS partition
+* `date_format` - string, date format as for PHP [date() function](https://secure.php.net/manual/en/function.date.php)
+* `keep_snapshots` - array with keys `hour`, `day`, `month` and `year`, each key contains number of snapshots that must be kept within corresponding time interval (`-1` means unlimited)
+* `keep_other_snapshots` - the same as `keep_snapshots`, but for backups, `keep_snapshots` by default
+* `optimize_mounts` - allows to avoid constant remounting root during external backups since it might be slow; `true` by default, might be disabled if necessary
+* `minimum_delete_count` - minimum number of snapshots to remove, is used to decrease fragmentation and thus improve performance, `1` by default
+* `minimum_delete_count_other` - the same as `minimum_delete_count`, but for backups, `minimum_delete_count` by default
 
 Save this config as `/etc/just-backup-btrfs.json` and customize as you like.
 

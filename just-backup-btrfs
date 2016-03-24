@@ -32,7 +32,8 @@ class Just_backup_btrfs {
 	}
 	function backup () {
 		$default_config = [
-			'optimize_mounts' => true
+			'optimize_mounts'      => true,
+			'minimum_delete_count' => 1
 		];
 		foreach ($this->config as $local_config) {
 			$this->do_backup($local_config + $default_config);
@@ -42,8 +43,9 @@ class Just_backup_btrfs {
 	 * @param array $config
 	 */
 	protected function do_backup ($config) {
-		$source      = $config['source_mounted_volume'];
-		$destination = $config['destination_within_partition'];
+		$source               = $config['source_mounted_volume'];
+		$destination          = $config['destination_within_partition'];
+		$minimum_delete_count = $config['minimum_delete_count'];
 
 		$history_db = $this->init_database($destination);
 		if (!$history_db) {
@@ -93,7 +95,7 @@ class Just_backup_btrfs {
 
 		$this->do_backup_external($config, $history_db, $snapshot, $comment, $date);
 
-		$this->cleanup($history_db, $destination);
+		$this->cleanup($history_db, $destination, $minimum_delete_count);
 		$history_db->close();
 	}
 	/**
@@ -153,6 +155,7 @@ class Just_backup_btrfs {
 		$source               = $config['source_mounted_volume'];
 		$destination          = $config['destination_within_partition'];
 		$destination_external = $config['destination_other_partition'];
+		$minimum_delete_count = @$config['minimum_delete_count_other'] ?: $config['minimum_delete_count'];
 		$history_db_external  = $this->init_database($destination_external);
 		if (!$history_db_external) {
 			return;
@@ -161,7 +164,7 @@ class Just_backup_btrfs {
 		$common_snapshot = $this->get_last_common_snapshot($history_db, $history_db_external, $destination, $destination_external);
 		list($keep_year, $keep_month, $keep_day, $keep_hour) = $this->how_long_to_keep(
 			$history_db_external,
-			isset($config['keep_other_snapshots']) ? $config['keep_other_snapshots'] : $config['keep_snapshots']
+			@$config['keep_other_snapshots'] ?: $config['keep_snapshots']
 		);
 		if (!$keep_hour) {
 			return;
@@ -248,7 +251,7 @@ class Just_backup_btrfs {
 		if (!file_exists("$destination_external/$snapshot")) {
 			echo "Creating $type $snapshot of $source to $destination_external failed\n";
 		} else {
-			$this->cleanup($history_db_external, $destination_external);
+			$this->cleanup($history_db_external, $destination_external, $minimum_delete_count);
 			echo "Creating $type $snapshot of $source to $destination_external finished successfully\n";
 		}
 		if (!$config['optimize_mounts']) {
@@ -373,7 +376,7 @@ class Just_backup_btrfs {
 				$offset *= 24;
 				array_pop($condition);
 		}
-		$condition = implode(' OR ', $condition);;
+		$condition = implode(' OR ', $condition);
 		return $history_db->querySingle(
 			"SELECT `snapshot_name`
 			FROM `history`
@@ -385,9 +388,10 @@ class Just_backup_btrfs {
 	/**
 	 * @param SQLite3 $history_db
 	 * @param string  $destination
+	 * @param int     $minimum_delete_count
 	 */
-	protected function cleanup ($history_db, $destination) {
-		foreach ($this->snapshots_for_removal($history_db) as $snapshot_for_removal) {
+	protected function cleanup ($history_db, $destination, $minimum_delete_count) {
+		foreach ($this->snapshots_for_removal($history_db, $minimum_delete_count) as $snapshot_for_removal) {
 			$this->exec("$this->binary subvolume delete \"$destination/$snapshot_for_removal\"");
 			if (file_exists("$destination/$snapshot_for_removal")) {
 				echo "Removing old snapshot $snapshot_for_removal from $destination failed\n";
@@ -407,10 +411,11 @@ class Just_backup_btrfs {
 	}
 	/**
 	 * @param SQLite3 $history_db
+	 * @param int     $minimum_delete_count
 	 *
 	 * @return string[]
 	 */
-	protected function snapshots_for_removal ($history_db) {
+	protected function snapshots_for_removal ($history_db, $minimum_delete_count) {
 		$snapshots_for_removal = [];
 		$date                  = time();
 		$hour_ago              = 3600;
@@ -436,7 +441,8 @@ class Just_backup_btrfs {
 		while ($snapshots_for_removal[] = $snapshots->fetchArray(SQLITE3_ASSOC)['snapshot_name']) {
 			// Empty
 		}
-		return array_filter(array_unique($snapshots_for_removal));
+		$snapshots = array_filter(array_unique($snapshots_for_removal));
+		return count($snapshots) < $minimum_delete_count ? [] : $snapshots;
 	}
 }
 

@@ -1,3 +1,6 @@
+# 0.8 (24 March, 2016)
+* `minimum_delete_count` and `minimum_delete_count_other` options introduced
+
 # 0.7 (12 March, 2016)
 * Optimized mounts to speed-up everything, `optimize_mounts : false` might be used to restore default behavior
 * `composer.json` added alongside with instructions for installing globally using Composer
