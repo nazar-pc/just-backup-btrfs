@@ -196,7 +196,7 @@ class Just_backup_btrfs {
 		/**
 		 * Next block is because of BTRFS limitations - we can't receive incremental snapshots diff into path which is mounted as subvolume, not root of the partition.
 		 * To overcome this we determine partition which was mounted, subvolume path inside partition, mount partition root to temporary path and determine full path of our destination inside this new mount point.
-		 * This new mount point will be stored as $destination_external_fixed, mount point will be stored in $target_mount_point variables
+		 * This new mount point will be stored as $destination_external_fixed, mount point will be stored in $target_mount_point variable
 		 */
 		$mount_point_options = $this->determine_mount_point($destination_external);
 		if (!$mount_point_options) {
