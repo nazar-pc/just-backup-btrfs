@@ -1,3 +1,6 @@
+# 0.9 (17 March, 2017)
+* Added `/sbin/btrfs` to the list of checked binary locations (used on Gentoo)
+
 # 0.8 (24 March, 2016)
 * `minimum_delete_count` and `minimum_delete_count_other` options introduced
 
