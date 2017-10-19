@@ -48,7 +48,7 @@ sudo COMPOSER_BIN_DIR=/usr/local/bin composer global remove nazar-pc/just-backup
 Or without `COMPOSER_BIN_DIR=/usr/local/bin` if you didn't use it during installation.
 
 ### Usage
-Script expects configuration file to be present at location `/etc/just-backup-btrfs.json`, example of such file you can find in next section. Also, if you want to use other path to config file - specify it as argument.
+Script expects configuration file to be present at location `/etc/just-backup-btrfs.json`, example of such file you can find below. Also, if you want to use other path to config file - specify it as argument.
 
 There are few ways to run script.
 ```bash
@@ -123,7 +123,7 @@ Also you can call it with cron or in some other way:)
 * creates snapshot with date as the name inside `destination_within_partition`
 * creates backups (copies of snapshots inside `destination_within_partition`) inside `destination_other_partition` for the case when source filesystem crashes
 * store snapshot name, date and how long snapshot should be kept in `destination_within_partition/history.db` (and `destination_other_partition/history.db`, since backups might have own retention settings)
-* removes old snapshots stored in `destination_within_partition/history.db` (and `destination_other_partition/history.db`) and remove them from it and from filesystem
+* reads old snapshots stored in `destination_within_partition/history.db` (and `destination_other_partition/history.db`) and remove them from `history.db` and from filesystem
 
 ### Configuration
 Configuration options are especially made self-explanatory:
