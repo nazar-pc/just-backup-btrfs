@@ -30,6 +30,7 @@ class Just_backup_btrfs {
 		if (!$config) {
 			exit("Incorrect configuration, aborted\n");
 		}
+		// TODO: if $btrfs_cmd is set, this is not needed
 		$this->config = $config;
 		if (file_exists('/usr/sbin/btrfs')) {
 			$this->binary = '/usr/sbin/btrfs';
@@ -57,6 +58,14 @@ class Just_backup_btrfs {
 		$source               = $config['source_mounted_volume'];
 		$destination          = $config['destination_within_partition'];
 		$minimum_delete_count = $config['minimum_delete_count'];
+		/* custom btrfs command for local operations */
+		$btrfs_cmd            = @$config['btrfs_cmd'] ?: $this->binary;
+		/* custom commands in `btrfs send | btrfs receive` pipe,
+		 * allow to use ssh on both sides of the pipe,
+		 * example: "btrfs_send_cmd" : "ssh username@host btrfs" */
+		$btrfs_send_cmd       = @$config['btrfs_send_cmd'] ?: $this->binary;
+		$btrfs_receive_cmd    = @$config['btrfs_receive_cmd'] ?: $this->binary;
+		// TODO: check that commands are really available
 
 		$history_db = $this->init_database($destination);
 		if (!$history_db) {
@@ -95,7 +104,7 @@ class Just_backup_btrfs {
 			return;
 		}
 
-		$this->exec("$this->binary subvolume snapshot -r \"$source\" \"$destination/$snapshot\"");
+		$this->exec("$btrfs_cmd subvolume snapshot -r \"$source\" \"$destination/$snapshot\"");
 		$this->exec("sync"); // To actually write snapshot to disk
 		if (!file_exists("$destination/$snapshot")) {
 			echo "Snapshot creation for $source failed\n";
@@ -248,13 +257,13 @@ class Just_backup_btrfs {
 		}
 		if ($common_snapshot) {
 			$this->exec(
-				"$this->binary send -p \"$destination/$common_snapshot\" \"$destination/$snapshot\" | $this->binary receive $destination_external_fixed",
+				"$btrfs_send_cmd send -p \"$destination/$common_snapshot\" \"$destination/$snapshot\" | $btrfs_receive_cmd receive $destination_external_fixed",
 				'Making incremental backup'
 			);
 			$type = 'incremental backup';
 		} else {
 			$this->exec(
-				"$this->binary send  \"$destination/$snapshot\" | $this->binary receive $destination_external_fixed",
+				"$btrfs_send_cmd send  \"$destination/$snapshot\" | $btrfs_receive_cmd receive $destination_external_fixed",
 				'Making full backup'
 			);
 			$type = 'backup';
@@ -403,7 +412,7 @@ class Just_backup_btrfs {
 	 */
 	protected function cleanup ($history_db, $destination, $minimum_delete_count) {
 		foreach ($this->snapshots_for_removal($history_db, $minimum_delete_count) as $snapshot_for_removal) {
-			$this->exec("$this->binary subvolume delete \"$destination/$snapshot_for_removal\"");
+			$this->exec("$btrfs_cmd subvolume delete \"$destination/$snapshot_for_removal\"");
 			if (file_exists("$destination/$snapshot_for_removal")) {
 				echo "Removing old snapshot $snapshot_for_removal from $destination failed\n";
 				continue;
