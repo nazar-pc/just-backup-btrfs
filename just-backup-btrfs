@@ -21,6 +21,13 @@ class Just_backup_btrfs {
 	 * @var string
 	 */
 	protected $binary;
+	protected $btrfs_cmd;
+	protected $btrfs_send_cmd;
+	protected $btrfs_receive_cmd;
+	protected $action_snapshot_post;
+	protected $action_send_pre;
+	protected $action_receive_post;
+	protected $skip_auto_mounting;
 	/**
 	 * @param array $config
 	 *
@@ -30,7 +37,11 @@ class Just_backup_btrfs {
 		if (!$config) {
 			exit("Incorrect configuration, aborted\n");
 		}
-		// TODO: if $btrfs_cmd is set, this is not needed
+		/* Run trap_exit() on any exit from do_backup()
+		 * to guarantee thet post-snapshot action is performed,
+		 * e.g. volume is unmounted */
+		register_shutdown_function(array($this, 'trap_exit'));
+		// TODO: if $this->btrfs_cmd is set, this is not needed
 		$this->config = $config;
 		if (file_exists('/usr/sbin/btrfs')) {
 			$this->binary = '/usr/sbin/btrfs';
@@ -40,6 +51,11 @@ class Just_backup_btrfs {
 			$this->binary = '/bin/btrfs';
 		} else {
 			throw new RuntimeException("Can't find btrfs binary");
+		}
+	}
+	function trap_exit () {
+		if ($this->action_snapshot_post) {
+			$this->exec("$this->action_snapshot_post", "Running post-snapshot action");
 		}
 	}
 	function backup () {
@@ -59,13 +75,45 @@ class Just_backup_btrfs {
 		$destination          = $config['destination_within_partition'];
 		$minimum_delete_count = $config['minimum_delete_count'];
 		/* custom btrfs command for local operations */
-		$btrfs_cmd            = @$config['btrfs_cmd'] ?: $this->binary;
+		$this->btrfs_cmd      = @$config['btrfs_cmd'] ?: $this->binary;
 		/* custom commands in `btrfs send | btrfs receive` pipe,
 		 * allow to use ssh on both sides of the pipe,
 		 * example: "btrfs_send_cmd" : "ssh username@host btrfs" */
-		$btrfs_send_cmd       = @$config['btrfs_send_cmd'] ?: $this->binary;
-		$btrfs_receive_cmd    = @$config['btrfs_receive_cmd'] ?: $this->binary;
+		$this->btrfs_send_cmd  = @$config['btrfs_send_cmd'] ?: $this->binary;
+		$this->btrfs_receive_cmd = @$config['btrfs_receive_cmd'] ?: $this->binary;
 		// TODO: check that commands are really available
+		/* shell command to execute before snapshotting,
+		 * e.g. mount btrfs volume (useful when only subvolumes
+		 * are mounted, but the root is not) */
+		$action_snapshot_pre  = @$config['action_snapshot_pre'] ?: null;
+		/* shell command to execute on any exit,
+		 * e.g. umount btrfs volume */
+		$this->action_snapshot_post = @$config['action_snapshot_post'] ?: null;
+		/* shell command to execute before `[ssh] btrfs send | [ssh] btrfs receive`,
+		 * useful e.g. to mount sth on external server via SSH */
+		$this->action_send_pre      = @$config['action_send_pre'] ?: null;
+		/* shell command to execure after `[ssh] btrfs send | [ssh] btrfs receive`,
+		 * e.g. umount sth on external server via SSH */
+		$this->action_receive_post  = @$config['action_receive_post'] ?: null;
+		/* skip attempts to mount subvol=/ (root subvolume) before
+		 * `btrfs send | btrfs receive`, e.g. if propper mounting was
+		 * defined in $action* variables;
+		 * possible values: "yes", "true", "1";
+		 * other values and being not set are equal to false */
+		$this->skip_auto_mounting = @$config['skip_auto_mounting'] ?: null;
+		if ($this->skip_auto_mounting and (strcasecmp($this->skip_auto_mounting, "yes") or
+		                             strcasecmp($this->skip_auto_mounting, "true") or
+		                             strcasecmp($this->skip_auto_mounting, "1"))) {
+			$this->skip_auto_mounting = 1;
+		} else {
+			$this->skip_auto_mounting = 0;
+		}
+
+		/* execute it here early enough so that $history_db is not created outside
+		 * of target mountpoint if sth is mounted in $action_snapshot_pre */
+		if ($action_snapshot_pre) {
+			$this->exec("$action_snapshot_pre", "Running pre-snapshot action");
+		}
 
 		$history_db = $this->init_database($destination);
 		if (!$history_db) {
@@ -104,7 +152,7 @@ class Just_backup_btrfs {
 			return;
 		}
 
-		$this->exec("$btrfs_cmd subvolume snapshot -r \"$source\" \"$destination/$snapshot\"");
+		$this->exec($this->btrfs_cmd . ' subvolume snapshot -r "' . $source . '" "' . $destination . '/' . $snapshot . '"');
 		$this->exec("sync"); // To actually write snapshot to disk
 		if (!file_exists("$destination/$snapshot")) {
 			echo "Snapshot creation for $source failed\n";
@@ -239,7 +287,7 @@ class Just_backup_btrfs {
 
 		$target_mount_point         = "/tmp/just_backup_btrfs_".md5($partition);
 		$destination_external_fixed = $target_mount_point.$destination_external_fixed;
-		if (!is_dir($target_mount_point)) {
+		if (!$this->skip_auto_mounting and (!is_dir($target_mount_point))) {
 			mkdir($target_mount_point);
 			$this->exec(
 				"mount -o subvol=/,$mount_options /$partition $target_mount_point",
@@ -250,20 +298,23 @@ class Just_backup_btrfs {
 		}
 		unset($mount_point_options, $partition, $mount_point, $mount_options);
 
-		if (!isset($destination_external_fixed, $target_mount_point)) {
+		if (!$this->skip_auto_mounting and (!isset($destination_external_fixed, $target_mount_point))) {
 			echo "Can't find where and how $destination_external is mounted, probably it is not on BTRFS partition?\n";
 			echo "Creating backup $snapshot of $source to $destination_external failed\n";
 			return;
 		}
+		if ($this->action_send_pre) {
+			$this->exec("$action_snapshot_pre", "Running pre-send action");
+		}
 		if ($common_snapshot) {
 			$this->exec(
-				"$btrfs_send_cmd send -p \"$destination/$common_snapshot\" \"$destination/$snapshot\" | $btrfs_receive_cmd receive $destination_external_fixed",
+				"$this->btrfs_send_cmd send -p \"$destination/$common_snapshot\" \"$destination/$snapshot\" | $this->btrfs_receive_cmd receive $destination_external_fixed",
 				'Making incremental backup'
 			);
 			$type = 'incremental backup';
 		} else {
 			$this->exec(
-				"$btrfs_send_cmd send  \"$destination/$snapshot\" | $btrfs_receive_cmd receive $destination_external_fixed",
+				"$this->btrfs_send_cmd send  \"$destination/$snapshot\" | $this->btrfs_receive_cmd receive $destination_external_fixed",
 				'Making full backup'
 			);
 			$type = 'backup';
@@ -273,15 +324,20 @@ class Just_backup_btrfs {
 		} else {
 			$this->cleanup($history_db_external, $destination_external, $minimum_delete_count);
 			echo "Creating $type $snapshot of $source to $destination_external finished successfully\n";
+			if ($this->action_receive_post) {
+				$this->exec("$this->action_receive_post", "Running post-receive action");
+			}
 		}
-		if (!$config['optimize_mounts']) {
-			$this->exec(
-				"umount $target_mount_point",
-				'Unmounting root subvolume'
-			);
-			rmdir($target_mount_point);
-		} else {
-			echo "Unmounting root subvolume skipped\n";
+		if (!$this->skip_auto_mounting) {
+			if (!$config['optimize_mounts']) {
+				$this->exec(
+					"umount $target_mount_point",
+					'Unmounting root subvolume'
+				);
+				rmdir($target_mount_point);
+			} else {
+				echo "Unmounting root subvolume skipped\n";
+			}
 		}
 	}
 	protected function determine_mount_point ($destination_external) {
@@ -412,7 +468,7 @@ class Just_backup_btrfs {
 	 */
 	protected function cleanup ($history_db, $destination, $minimum_delete_count) {
 		foreach ($this->snapshots_for_removal($history_db, $minimum_delete_count) as $snapshot_for_removal) {
-			$this->exec("$btrfs_cmd subvolume delete \"$destination/$snapshot_for_removal\"");
+			$this->exec("$this->btrfs_cmd subvolume delete \"$destination/$snapshot_for_removal\"");
 			if (file_exists("$destination/$snapshot_for_removal")) {
 				echo "Removing old snapshot $snapshot_for_removal from $destination failed\n";
 				continue;
