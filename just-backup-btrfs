@@ -40,6 +40,8 @@ class Just_backup_btrfs {
 		/* Run trap_exit() on any exit from do_backup()
 		 * to guarantee thet post-snapshot action is performed,
 		 * e.g. volume is unmounted */
+		// TODO: works as expected only if one mount point is snapshotted
+		// TODO: make an array of action_snapshot_post and run all of them
 		register_shutdown_function(array($this, 'trap_exit'));
 		// TODO: if $this->btrfs_cmd is set, this is not needed
 		$this->config = $config;
@@ -65,6 +67,7 @@ class Just_backup_btrfs {
 		];
 		foreach ($this->config as $local_config) {
 			$this->do_backup($local_config + $default_config);
+			$this->trap_exit();
 		}
 	}
 	/**
