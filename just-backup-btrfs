@@ -74,6 +74,7 @@ class Just_backup_btrfs {
 		$source               = $config['source_mounted_volume'];
 		$destination          = $config['destination_within_partition'];
 		$minimum_delete_count = $config['minimum_delete_count'];
+		$snapshot_name_prefix = @$config['snapshot_name_prefix'] ?: null;
 		/* custom btrfs command for local operations */
 		$this->btrfs_cmd      = @$config['btrfs_cmd'] ?: $this->binary;
 		/* custom commands in `btrfs send | btrfs receive` pipe,
@@ -125,7 +126,11 @@ class Just_backup_btrfs {
 			return;
 		}
 		$date             = time();
-		$snapshot         = date($config['date_format'], $date);
+		if ($snapshot_name_prefix) {
+			$snapshot = $snapshot_name_prefix . "__" . date($config['date_format'], $date);
+		} else {
+			$snapshot = date($config['date_format'], $date);
+		}
 		$snapshot_escaped = $history_db::escapeString($snapshot);
 		$comment          = ''; //TODO Comments support
 		if (!$history_db->exec(
