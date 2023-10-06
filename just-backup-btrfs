@@ -233,7 +233,7 @@ class Just_backup_btrfs {
 		if (!is_dir($target_mount_point)) {
 			mkdir($target_mount_point);
 			$this->exec(
-				"mount -o subvol=/,$mount_options /$partition $target_mount_point",
+				"mount -o subvol=/,$mount_options $partition $target_mount_point",
 				'Mounting root subvolume'
 			);
 		} else {
