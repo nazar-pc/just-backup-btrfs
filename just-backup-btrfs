@@ -449,8 +449,8 @@ class Just_backup_btrfs {
 					`date`		< ($date - $month_ago)
 				)"
 		);
-		while ($snapshots_for_removal[] = $snapshots->fetchArray(SQLITE3_ASSOC)['snapshot_name']) {
-			// Empty
+		while ($entry = $snapshots->fetchArray(SQLITE3_ASSOC)) {
+            $snapshots_for_removal[] = $entry['snapshot_name'];
 		}
 		$snapshots = array_filter(array_unique($snapshots_for_removal));
 		return count($snapshots) < $minimum_delete_count ? [] : $snapshots;
