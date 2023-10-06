@@ -1,3 +1,7 @@
+# 0.10.0 (07 October, 2023)
+* Fix warning generated during normal operation
+* Fix support for target that is mounted as a subvolume by ignoring extra mount options
+
 # 0.9 (17 March, 2017)
 * Added `/sbin/btrfs` to the list of checked binary locations (used on Gentoo)
 

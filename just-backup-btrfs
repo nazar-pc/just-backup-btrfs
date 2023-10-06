@@ -8,9 +8,9 @@ use
 /**
  * @package   Just backup btrfs
  * @author    Nazar Mokrynskyi <nazar@mokrynskyi.com>
- * @copyright Copyright (c) 2014-2017, Nazar Mokrynskyi
+ * @copyright Copyright (c) 2014-2023, Nazar Mokrynskyi
  * @license   http://opensource.org/licenses/MIT
- * @version   0.9
+ * @version   0.10.0
  */
 class Just_backup_btrfs {
 	/**
@@ -216,6 +216,23 @@ class Just_backup_btrfs {
 			return;
 		}
 		list($partition, $mount_point, $mount_options) = $mount_point_options;
+
+		/**
+		 * Remove subvolume options, we'll be mounting root instead
+		 */
+		$mount_options = implode(
+			",",
+			array_filter(explode(",", $mount_options), function ($option) {
+				if (strpos($option, "subvolid=") === 0) {
+					return false;
+				}
+				if (strpos($option, "subvol=") === 0) {
+					return false;
+				}
+
+				return true;
+			})
+		);
 
 		/**
 		 * Set fixed destination as path inside subvolume, just remove mount point from the whole destination path
