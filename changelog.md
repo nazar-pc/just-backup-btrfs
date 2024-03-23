@@ -1,3 +1,6 @@
+# 0.10.1 (23 March, 2024)
+* Fix warning when creating the first snapshot
+
 # 0.10.0 (07 October, 2023)
 * Fix warning generated during normal operation
 * Fix support for target that is mounted as a subvolume by ignoring extra mount options

@@ -10,7 +10,7 @@ use
  * @author    Nazar Mokrynskyi <nazar@mokrynskyi.com>
  * @copyright Copyright (c) 2014-2023, Nazar Mokrynskyi
  * @license   http://opensource.org/licenses/MIT
- * @version   0.10.0
+ * @version   0.10.1
  */
 class Just_backup_btrfs {
 	/**
@@ -329,7 +329,7 @@ class Just_backup_btrfs {
 	 * @param string  $destination
 	 * @param string  $destination_external
 	 *
-	 * @return bool
+	 * @return bool|string
 	 */
 	protected function get_last_common_snapshot ($history_db, $history_db_external, $destination, $destination_external) {
 		$snapshots = $history_db_external->query(
@@ -337,8 +337,9 @@ class Just_backup_btrfs {
 			FROM `history`
 			ORDER BY `date` DESC"
 		);
-		while ($snapshot = $snapshots->fetchArray(SQLITE3_ASSOC)['snapshot_name']) {
-			$snapshot_escaped = $history_db::escapeString($snapshot);
+		while ($snapshot = $snapshots->fetchArray(SQLITE3_ASSOC)) {
+            $snapshot_name = $snapshot['snapshot_name'];
+			$snapshot_escaped = $history_db::escapeString($snapshot_name);
 			$snapshot_found   = $history_db
 				->query(
 					"SELECT `snapshot_name`
@@ -348,10 +349,10 @@ class Just_backup_btrfs {
 				->fetchArray();
 			if (
 				$snapshot_found &&
-				file_exists("$destination/$snapshot") &&
-				file_exists("$destination_external/$snapshot")
+				file_exists("$destination/$snapshot_name") &&
+				file_exists("$destination_external/$snapshot_name")
 			) {
-				return $snapshot;
+				return $snapshot_name;
 			}
 		}
 		return false;
