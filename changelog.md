@@ -1,3 +1,6 @@
+# 0.10.2 (24 June, 2024)
+* Return non-zero status code in case of an error
+
 # 0.10.1 (23 March, 2024)
 * Fix warning when creating the first snapshot
 

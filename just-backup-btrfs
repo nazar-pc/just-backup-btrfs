@@ -2,7 +2,6 @@
 <?php
 namespace nazarpc;
 use
-	RuntimeException,
 	SQLite3;
 
 /**
@@ -10,7 +9,7 @@ use
  * @author    Nazar Mokrynskyi <nazar@mokrynskyi.com>
  * @copyright Copyright (c) 2014-2023, Nazar Mokrynskyi
  * @license   http://opensource.org/licenses/MIT
- * @version   0.10.1
+ * @version   0.10.2
  */
 class Just_backup_btrfs {
 	/**
@@ -23,8 +22,6 @@ class Just_backup_btrfs {
 	protected $binary;
 	/**
 	 * @param array $config
-	 *
-	 * @throws RuntimeException
 	 */
 	function __construct ($config) {
 		if (!$config) {
