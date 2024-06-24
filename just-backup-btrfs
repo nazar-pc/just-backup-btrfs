@@ -28,7 +28,8 @@ class Just_backup_btrfs {
 	 */
 	function __construct ($config) {
 		if (!$config) {
-			exit("Incorrect configuration, aborted\n");
+			echo "Incorrect configuration, aborted\n";
+			exit(1);
 		}
 		$this->config = $config;
 		if (file_exists('/usr/sbin/btrfs')) {
@@ -38,7 +39,8 @@ class Just_backup_btrfs {
 		} elseif (file_exists('/bin/btrfs')) {
 			$this->binary = '/bin/btrfs';
 		} else {
-			throw new RuntimeException("Can't find btrfs binary");
+			echo "Can't find btrfs binary\n";
+			exit(1);
 		}
 	}
 	function backup () {
