@@ -9,7 +9,7 @@ use
  * @author    Nazar Mokrynskyi <nazar@mokrynskyi.com>
  * @copyright Copyright (c) 2014-2023, Nazar Mokrynskyi
  * @license   http://opensource.org/licenses/MIT
- * @version   0.10.2
+ * @version   0.10.3
  */
 class Just_backup_btrfs {
 	/**
@@ -219,13 +219,18 @@ class Just_backup_btrfs {
 		/**
 		 * Remove subvolume options, we'll be mounting root instead
 		 */
+        $subvol = "";
 		$mount_options = implode(
 			",",
-			array_filter(explode(",", $mount_options), function ($option) {
-				if (strpos($option, "subvolid=") === 0) {
+			array_filter(explode(",", $mount_options), function ($option) use (&$subvol) {
+                $option = explode("=", $option, 2);
+				if ($option !== false && $option[0] === "subvolid") {
 					return false;
 				}
-				if (strpos($option, "subvol=") === 0) {
+				if ($option !== false && $option[0] === "subvol") {
+                    if ($option[1] != "/") {
+					    $subvol = $option[1];
+					}
 					return false;
 				}
 
@@ -236,7 +241,7 @@ class Just_backup_btrfs {
 		/**
 		 * Set fixed destination as path inside subvolume, just remove mount point from the whole destination path
 		 */
-		$destination_external_fixed = str_replace($mount_point, '', $destination_external);
+		$destination_external_fixed = $subvol.str_replace($mount_point, '', $destination_external);
 		/**
 		 * Now detect whether partition subvolume was mounted, $m[1] will contain subvolume path inside partition
 		 */
@@ -255,7 +260,7 @@ class Just_backup_btrfs {
 		} else {
 			echo "Mounting root subvolume skipped, since already mounted\n";
 		}
-		unset($mount_point_options, $partition, $mount_point, $mount_options);
+		unset($mount_point_options, $partition, $mount_point, $mount_options, $subvol);
 
 		if (!isset($destination_external_fixed, $target_mount_point)) {
 			echo "Can't find where and how $destination_external is mounted, probably it is not on BTRFS partition?\n";
