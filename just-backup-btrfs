@@ -219,17 +219,17 @@ class Just_backup_btrfs {
 		/**
 		 * Remove subvolume options, we'll be mounting root instead
 		 */
-        $subvol = "";
+		$subvol = "";
 		$mount_options = implode(
 			",",
 			array_filter(explode(",", $mount_options), function ($option) use (&$subvol) {
-                $option = explode("=", $option, 2);
+				$option = explode("=", $option, 2);
 				if ($option !== false && $option[0] === "subvolid") {
 					return false;
 				}
 				if ($option !== false && $option[0] === "subvol") {
-                    if ($option[1] != "/") {
-					    $subvol = $option[1];
+					if ($option[1] != "/") {
+						$subvol = $option[1];
 					}
 					return false;
 				}
@@ -277,7 +277,7 @@ class Just_backup_btrfs {
 			if (!file_exists("$destination_external/$snapshot")) {
 				echo "Creating $type $snapshot of $source to $destination_external failed\n";
 
-                $this->exec(
+				$this->exec(
 					"$this->binary send  \"$destination/$snapshot\" | $this->binary receive $destination_external_fixed",
 					'Making full backup'
 				);
@@ -352,7 +352,7 @@ class Just_backup_btrfs {
 			ORDER BY `date` DESC"
 		);
 		while ($snapshot = $snapshots->fetchArray(SQLITE3_ASSOC)) {
-            $snapshot_name = $snapshot['snapshot_name'];
+			$snapshot_name = $snapshot['snapshot_name'];
 			$snapshot_escaped = $history_db::escapeString($snapshot_name);
 			$snapshot_found   = $history_db
 				->query(
@@ -482,7 +482,7 @@ class Just_backup_btrfs {
 				)"
 		);
 		while ($entry = $snapshots->fetchArray(SQLITE3_ASSOC)) {
-            $snapshots_for_removal[] = $entry['snapshot_name'];
+			$snapshots_for_removal[] = $entry['snapshot_name'];
 		}
 		$snapshots = array_filter(array_unique($snapshots_for_removal));
 		return count($snapshots) < $minimum_delete_count ? [] : $snapshots;
