@@ -1,5 +1,6 @@
 # 0.10.3 (17 May, 2025)
 * Fix support for destination in a subvolume
+* Create full backup right away if incremental backup failed
 
 # 0.10.2 (24 June, 2024)
 * Return non-zero status code in case of an error

@@ -273,6 +273,16 @@ class Just_backup_btrfs {
 				'Making incremental backup'
 			);
 			$type = 'incremental backup';
+
+			if (!file_exists("$destination_external/$snapshot")) {
+				echo "Creating $type $snapshot of $source to $destination_external failed\n";
+
+                $this->exec(
+					"$this->binary send  \"$destination/$snapshot\" | $this->binary receive $destination_external_fixed",
+					'Making full backup'
+				);
+				$type = 'backup';
+			}
 		} else {
 			$this->exec(
 				"$this->binary send  \"$destination/$snapshot\" | $this->binary receive $destination_external_fixed",
